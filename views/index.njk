@@ -2,9 +2,11 @@
 {% block content %}
 
 <main>
-{% for tweet in tweets %}
-    {% include "components/tweet.njk" %}
-{% endfor %}
+    <ul class="tweets">
+        {% for tweet in tweets %}
+            {% include "components/tweet.njk" %}
+        {% endfor %}
+    </ul>
 </main>
 
 {% endblock %}
