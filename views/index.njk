@@ -1,9 +1,10 @@
 {% extends "layout.njk" %}
 {% block content %}
 
+<main>
 {% for tweet in tweets %}
     {% include "components/tweet.njk" %}
 {% endfor %}
-
+</main>
 
 {% endblock %}

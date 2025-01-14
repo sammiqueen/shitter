@@ -1,8 +1,20 @@
 {% block content %}
 
-<div class="textblock">
-    <p>{{tweet.name}}</p>
-    <li>{{tweet.message}}</li>
-</div>
+<li class="tweet">
+    <article>
+        <header>
+            <h2>{{tweet.name}}</h2>
+            <time datetime="{{tweet.updated_at}}">{{tweet.updated_at}}</time>
+        </header>
+        <p>{{tweet.message}}</p>
+        <footer>
+            <ul>
+                <li>Share</li>
+                <li>Reply</li>
+            </ul>
+        </footer>
+    </article>
+</li>
+
 
 {% endblock %}
