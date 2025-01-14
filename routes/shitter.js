@@ -8,7 +8,8 @@ router.get("/", async (request, response) => {
     const [tweets] = await pool.promise().query(`
         SELECT tweets.*, users.name, DATE_FORMAT(tweets.updated_at, "%Y-%m-%d %H:%i") AS date
         FROM tweets
-        JOIN users ON tweets.author_id = users.id;
+        JOIN users ON tweets.author_id = users.id
+        ORDER BY updated_at DESC;
         `)
 
     response.render("index.njk", {
