@@ -3,6 +3,8 @@ import nunjucks from "nunjucks"
 import bodyparser from "body-parser"
 import 'dotenv/config'
 
+import shitRouter from "./routes/shitter.js"
+
 const app = express()
 const port = 3000
 
@@ -10,6 +12,8 @@ nunjucks.configure("views", {
     autoescape: true,
     express: app,
 })
+
+app.use("/shitter", shitRouter)
 
 app.use(express.static("public"))
 app.use(bodyparser.urlencoded({extended:true}));

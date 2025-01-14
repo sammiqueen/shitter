@@ -1,0 +1,44 @@
+* {
+    font-family: Arial, Helvetica, sans-serif;
+    margin: 0px;
+    padding: 0px;
+}
+
+body {
+    background-color: gray;
+}
+
+p {
+    line-height: 150%;
+}
+
+h3 {
+    margin-top:10px;
+}
+
+.textblock {
+    background-color: white;
+    margin: 5%;
+    border-radius: 25px;
+    padding: 5%;
+}
+
+.textblockHighlight {
+    background-color: rgb(198, 198, 198);
+    margin: 5%;
+    padding: 5%;
+}
+
+.questioncardContainer {
+    margin-top: 2%;
+    gap: 5%;
+}
+
+.questioncard {
+    background-color: rgb(91, 157, 157);
+    padding: 1rem;
+}
+
+.questioncard:hover {
+    background-color: rgb(196, 214, 231);   
+}
