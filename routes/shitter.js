@@ -1,4 +1,4 @@
-import express from "express"
+import express, { request } from "express"
 import pool from "../db.js"
 
 const router = express.Router()
@@ -17,6 +17,31 @@ router.get("/", async (request, response) => {
         tweets: tweets
         }
     )
+})
+
+router.get("/post", async (request, response) => {
+
+    const [authors] = await pool.promise().query(`
+        SELECT * FROM users`)
+
+    response.render("creationform.njk", {
+        title: "Create new tweet",
+        authors: authors
+    })
+})
+
+router.post("/", async (request, response) => {
+
+    const author_id = request.body.author
+    const message = request.body.content
+
+    await pool.promise().query(`
+        INSERT INTO tweets (author_id, message)
+        VALUES (?, ?)`,
+        [author_id, message]
+    )
+    
+    response.redirect("/shitter")
 })
 
 export default router

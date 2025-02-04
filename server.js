@@ -13,11 +13,11 @@ nunjucks.configure("views", {
     express: app,
 })
 
-app.use("/shitter", shitRouter)
-
 app.use(express.static("public"))
 app.use(bodyparser.urlencoded({extended:true}));
 app.use(bodyparser.json());
+
+app.use("/shitter", shitRouter)
 
 app.listen(3000, () => {
     console.log("Server is running on http://localhost:3000")

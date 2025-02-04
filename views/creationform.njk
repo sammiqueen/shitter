@@ -1,0 +1,21 @@
+{% extends "layout.njk" %}
+{% block content %}
+
+<form action="/shitter" method="post">
+    <div class="textblock">
+        <h2>Create new tweet</h2>
+            <label for="content">Content</label>
+            <input type="text", name="content" required><br>
+
+            <label for="author">Author</label>
+            <select name="author" required>
+                {% for author in authors %}
+                    <option value={{author.id}}>{{author.name}}</option>
+                {% endfor %}
+            </select> <br>
+
+        <button type="submit">Post</button>
+    </div>
+</form>
+
+{% endblock %}
