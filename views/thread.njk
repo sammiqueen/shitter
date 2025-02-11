@@ -1,0 +1,19 @@
+{% extends "layout.njk" %}
+{% block content %}
+
+<main>
+    <ul class="tweets">
+        {% for tweet in tweet %}
+            {% include "components/tweet.njk" %}
+        {% endfor %}
+    </ul>
+    <hr>
+    <h2>Replies:</h2>
+    <ul class="tweets">
+        {% for tweet in replies %}
+            {% include "components/tweet.njk" %}
+        {% endfor %}
+    </ul>
+</main>
+
+{% endblock %}

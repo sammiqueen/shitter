@@ -44,6 +44,26 @@ router.post("/", async (request, response) => {
     response.redirect("/shitter")
 })
 
+router.get("/:id", async (request, response) => {
+    
+    const id = request.params.id
+
+    const tweet = await pool.promise().query(`
+        SELECT * FROM tweets
+        WHERE id = ?
+        `, [id])
+
+    const replies = await pool.promise().query(`
+        SELECT threads.reply_id, tweets.* FROM threads
+        JOIN tweets ON tweets.id = threads.reply_id;
+        `)
+
+    response.render("thread.njk", {
+        replies: replies,
+        tweet: tweet
+    })
+})
+
 router.get("/:id/delete", async (request, response) => {
     const id = request.params.id
 
