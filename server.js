@@ -2,6 +2,7 @@ import express from "express"
 import nunjucks from "nunjucks"
 import bodyparser from "body-parser"
 import 'dotenv/config'
+import logger from "morgan"
 
 import shitRouter from "./routes/shitter.js"
 
@@ -16,6 +17,8 @@ nunjucks.configure("views", {
 app.use(express.static("public"))
 app.use(bodyparser.urlencoded({extended:true}));
 app.use(bodyparser.json());
+
+app.use(logger("dev"))
 
 app.use("/shitter", shitRouter)
 

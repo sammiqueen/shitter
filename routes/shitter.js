@@ -44,4 +44,15 @@ router.post("/", async (request, response) => {
     response.redirect("/shitter")
 })
 
+router.get("/:id/delete", async (request, response) => {
+    const id = request.params.id
+
+    await pool.promise().query(`
+        DELETE FROM tweets
+        WHERE id = ?
+        `, [id])
+
+        response.redirect("/shitter")
+})
+
 export default router
