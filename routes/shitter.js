@@ -44,11 +44,38 @@ router.post("/", async (request, response) => {
     response.redirect("/shitter")
 })
 
+router.get("/:id/edit", async (request, response) => {
+    const id = request.params.id
+
+    const [old_content] = await pool.promise().query(`
+        SELECT tweets.message
+        FROM tweets
+        WHERE tweets.id = ?
+        `, [id])
+
+    console.log(old_content)
+
+    response.render("editform.njk", {
+        title: "Edit tweet",
+        old_content: old_content[0].message,
+        tweet_id: [id]
+    })
+})
+
+router.post("/:id"), async (request, response) => {
+    const new_content = request.body.new_content
+    const id = request.params.id
+
+    console.log(id, new_content)
+
+    response.redirect("/:?", id)
+}
+
 router.get("/:id", async (request, response) => {
     
     const id = request.params.id
 
-    const [tweet] = await pool.promise().query(`
+    const [tweets] = await pool.promise().query(`
         SELECT tweets.*, users.name, DATE_FORMAT(tweets.updated_at, "%Y-%m-%d %H:%i") AS date
         FROM tweets 
         JOIN users ON users.id = tweets.author_id 
@@ -65,8 +92,9 @@ router.get("/:id", async (request, response) => {
         `, [id])
 
     response.render("thread.njk", {
+        title: tweets[0].name + "'s tweet",
         replies: replies,
-        tweet: tweet
+        tweet: tweets
     })
 })
 

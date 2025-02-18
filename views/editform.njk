@@ -1,0 +1,15 @@
+{% extends "layout.njk" %}
+{% block content %}
+
+<main>
+    <form action = "/shitter/{{tweet_id}}" method = "post">
+        <div class="textblock">
+            <h2>Edit tweet</h2>
+                <label for="new_content">Content</label>
+                <input type="text", name="new_content" required value = "{{old_content}}"><br>
+            <button type="submit">Update</button>
+        </div>
+    </form>
+</main>
+
+{% endblock %}
