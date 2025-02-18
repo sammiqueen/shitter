@@ -48,15 +48,21 @@ router.get("/:id", async (request, response) => {
     
     const id = request.params.id
 
-    const tweet = await pool.promise().query(`
-        SELECT * FROM tweets
-        WHERE id = ?
+    const [tweet] = await pool.promise().query(`
+        SELECT tweets.*, users.name, DATE_FORMAT(tweets.updated_at, "%Y-%m-%d %H:%i") AS date
+        FROM tweets 
+        JOIN users ON users.id = tweets.author_id 
+        WHERE tweets.id = ?;
         `, [id])
 
-    const replies = await pool.promise().query(`
-        SELECT threads.reply_id, tweets.* FROM threads
-        JOIN tweets ON tweets.id = threads.reply_id;
-        `)
+    const [replies] = await pool.promise().query(`
+        SELECT threads.reply_id, tweets.*, DATE_FORMAT(tweets.updated_at, "%Y-%m-%d %H:%i") AS date
+        FROM threads
+        JOIN tweets ON tweets.id = threads.reply_id
+        JOIN users ON tweets.author_id = users.id
+        WHERE threads.origin_id = ?
+        ORDER BY updated_at DESC;
+        `, [id])
 
     response.render("thread.njk", {
         replies: replies,
