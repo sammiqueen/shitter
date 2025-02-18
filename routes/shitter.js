@@ -56,7 +56,7 @@ router.get("/:id", async (request, response) => {
         `, [id])
 
     const [replies] = await pool.promise().query(`
-        SELECT threads.reply_id, tweets.*, DATE_FORMAT(tweets.updated_at, "%Y-%m-%d %H:%i") AS date
+        SELECT threads.reply_id, users.name, tweets.*, DATE_FORMAT(tweets.updated_at, "%Y-%m-%d %H:%i") AS date
         FROM threads
         JOIN tweets ON tweets.id = threads.reply_id
         JOIN users ON tweets.author_id = users.id
