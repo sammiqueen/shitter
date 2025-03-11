@@ -62,14 +62,21 @@ router.get("/:id/edit", async (request, response) => {
     })
 })
 
-router.post("/:id"), async (request, response) => {
+router.post("/:id/edit", async (request, response) => {
     const new_content = request.body.new_content
     const id = request.params.id
+    const timestamp = new Date().toISOString().slice(0, 19).replace("T", " ")
+
+    await pool.promise().query(`
+        UPDATE tweets
+        SET tweets.message = ?, updated_at = ?
+        WHERE tweets.id = ?;
+        `, [new_content, timestamp, id])
 
     console.log(id, new_content)
 
-    response.redirect("/:?", id)
-}
+    response.redirect(`/shitter/${id}`)
+})
 
 router.get("/:id", async (request, response) => {
     
