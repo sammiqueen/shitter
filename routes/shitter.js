@@ -100,7 +100,7 @@ router.get("/:id", async (request, response) => {
         FROM tweets 
         JOIN users ON users.id = tweets.author_id 
         WHERE tweets.id = ?;
-        `, [id])
+        `, [origin_id])
 
     const [replies] = await pool.promise().query(`
         SELECT threads.reply_id, users.name, tweets.*, DATE_FORMAT(tweets.updated_at, "%Y-%m-%d %H:%i") AS date
@@ -109,7 +109,7 @@ router.get("/:id", async (request, response) => {
         JOIN users ON tweets.author_id = users.id
         WHERE threads.origin_id = ?
         ORDER BY updated_at DESC;
-        `, [id])
+        `, [origin_id])
 
     const [authors] = await pool.promise().query(`
         SELECT * FROM users`)
@@ -132,6 +132,54 @@ router.get("/:id/delete", async (request, response) => {
         `, [id])
 
         response.redirect("/shitter")
+})
+
+router.get("/login", async (request, response) => {
+    response.render("login.njk", {
+        title: "login page",
+
+    })
+})
+
+router.post("/login", async (request, response) => {
+    const password = request.params.password
+    const username = request.params.username
+
+    const user = await pool.promise().query(`
+        SELECT * FROM users
+        WHERE users.name = ?
+        `, [username])
+
+    bcrypt.compare(password, user.password, function(err, result){
+        console.log(result)
+    })
+})
+
+router.get("/user/new", async (request, response) => {
+    response.render("createuser.njk", {
+        title: "create new user",
+    })
+})
+
+router.post("/user/new", async (request, response) => {
+    password = request.params.password
+    username = request.params.username
+
+    console.log(password, username)
+
+    const result = await pool.promise().query(`
+        INSERT INTO users (name, password)
+        VALUES (?, ?)
+        `, {
+            username,
+            password
+        })
+
+    response.redirect("/user/" + result[0].insertId)
+})
+
+router.get("/user/:id", async (request, response) => {
+    
 })
 
 export default router

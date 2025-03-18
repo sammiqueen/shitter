@@ -9,6 +9,9 @@ import shitRouter from "./routes/shitter.js"
 const app = express()
 const port = 3000
 
+const bcrypt = import('bcrypt');
+const saltRounds = 10
+
 nunjucks.configure("views", {
     autoescape: true,
     express: app,
