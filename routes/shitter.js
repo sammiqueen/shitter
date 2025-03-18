@@ -35,13 +35,26 @@ router.post("/", async (request, response) => {
     const author_id = request.body.author
     const message = request.body.content
 
-    await pool.promise().query(`
+    const result = await pool.promise().query(`
         INSERT INTO tweets (author_id, message)
         VALUES (?, ?)`,
         [author_id, message]
     )
+
+    try {
+        //if new tweet is reply, redirect to ID of origin and create thread link
+        var redirect_id = request.body.origin_id
+        await pool.promise().query(`
+            INSERT INTO threads (origin_id, reply_id)
+            VALUES (?, ?)
+            `, [redirect_id, result[0].insertId])
+    }
+    catch(err) {
+        //if new tweet isnt reply, origin_id doesnt exist and redirect_id is handled differently
+        var redirect_id = result[0].insertId
+    }
     
-    response.redirect("/shitter")
+    response.redirect("/shitter/" + redirect_id)
 })
 
 router.get("/:id/edit", async (request, response) => {
@@ -80,9 +93,9 @@ router.post("/:id/edit", async (request, response) => {
 
 router.get("/:id", async (request, response) => {
     
-    const id = request.params.id
+    const origin_id = request.params.id
 
-    const [tweets] = await pool.promise().query(`
+    const [tweet] = await pool.promise().query(`
         SELECT tweets.*, users.name, DATE_FORMAT(tweets.updated_at, "%Y-%m-%d %H:%i") AS date
         FROM tweets 
         JOIN users ON users.id = tweets.author_id 
@@ -98,10 +111,15 @@ router.get("/:id", async (request, response) => {
         ORDER BY updated_at DESC;
         `, [id])
 
+    const [authors] = await pool.promise().query(`
+        SELECT * FROM users`)
+
     response.render("thread.njk", {
-        title: tweets[0].name + "'s tweet",
+        title: tweet[0].name + "'s tweet",
         replies: replies,
-        tweet: tweets
+        tweet: tweet,
+        origin_id: origin_id,
+        authors: authors
     })
 })
 

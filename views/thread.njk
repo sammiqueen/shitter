@@ -8,7 +8,32 @@
         {% endfor %}
     </ul>
     <hr>
+
     <h2>Replies:</h2>
+    <hr>
+
+    <ul class ="replyform">
+        <form action="/shitter/" method="post">
+            <div class="textblock">
+                <h2>Create new reply</h2>
+                    <label for="content">Content</label>
+                    <input type="text", name="content" required><br>
+        
+                    <label for="author">Author</label>
+                    <select name="author" required>
+                        {% for author in authors %}
+                            <option value={{author.id}}>{{author.name}}</option>
+                        {% endfor %}
+                    </select> <br>
+
+                    <input type ="hidden" name="origin_id" value={{origin_id}}>
+        
+                <button type="submit">Post</button>
+            </div>
+        </form>
+    </ul>
+    <hr>
+
     <ul class="tweets">
         {% for tweet in replies %}
             {% include "components/tweet.njk" %}
