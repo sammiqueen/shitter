@@ -9,6 +9,11 @@
 </head>
 
 <body>
+    {% if error.state %}
+        <dialog>
+            <p>Error: {{ error.message }}</p>
+        </dialog>
+    {% endif %}
     {% block content %}
     {% endblock %}
 </body>

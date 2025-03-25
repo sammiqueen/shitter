@@ -3,7 +3,7 @@ import pool from "../db.js"
 
 const router = express.Router()
 
-router.get("/", async (request, response) => {
+router.get(`/`, async (request, response) => {
 
     const [tweets] = await pool.promise().query(`
         SELECT tweets.*, users.name, DATE_FORMAT(tweets.updated_at, "%Y-%m-%d %H:%i") AS date
@@ -12,25 +12,25 @@ router.get("/", async (request, response) => {
         ORDER BY updated_at DESC;
         `)
 
-    response.render("index.njk", {
-        title: "Shitter",
+    response.render(`index.njk`, {
+        title: `Shitter`,
         tweets: tweets
         }
     )
 })
 
-router.get("/post", async (request, response) => {
+router.get(`/post`, async (request, response) => {
 
     const [authors] = await pool.promise().query(`
         SELECT * FROM users`)
 
-    response.render("creationform.njk", {
-        title: "Create new tweet",
+    response.render(`creationform.njk`, {
+        title: `Create new tweet`,
         authors: authors
     })
 })
 
-router.post("/", async (request, response) => {
+router.post(`/`, async (request, response) => {
 
     const author_id = request.body.author
     const message = request.body.content
@@ -54,10 +54,10 @@ router.post("/", async (request, response) => {
         var redirect_id = result[0].insertId
     }
     
-    response.redirect("/shitter/" + redirect_id)
+    response.redirect(`/shitter/` + redirect_id)
 })
 
-router.get("/:id/edit", async (request, response) => {
+router.get(`/:id/edit`, async (request, response) => {
     const id = request.params.id
 
     const [old_content] = await pool.promise().query(`
@@ -68,17 +68,17 @@ router.get("/:id/edit", async (request, response) => {
 
     console.log(old_content)
 
-    response.render("editform.njk", {
-        title: "Edit tweet",
+    response.render(`editform.njk`, {
+        title: `Edit tweet`,
         old_content: old_content[0].message,
         tweet_id: [id]
     })
 })
 
-router.post("/:id/edit", async (request, response) => {
+router.post(`/:id/edit`, async (request, response) => {
     const new_content = request.body.new_content
     const id = request.params.id
-    const timestamp = new Date().toISOString().slice(0, 19).replace("T", " ")
+    const timestamp = new Date().toISOString().slice(0, 19).replace(`T`, ` `)
 
     await pool.promise().query(`
         UPDATE tweets
@@ -91,7 +91,7 @@ router.post("/:id/edit", async (request, response) => {
     response.redirect(`/shitter/${id}`)
 })
 
-router.get("/:id", async (request, response) => {
+router.get(`/:id`, async (request, response) => {
     
     const origin_id = request.params.id
 
@@ -114,8 +114,8 @@ router.get("/:id", async (request, response) => {
     const [authors] = await pool.promise().query(`
         SELECT * FROM users`)
 
-    response.render("thread.njk", {
-        title: tweet[0].name + "'s tweet",
+    response.render(`thread.njk`, {
+        title: tweet[0].name + `'s tweet`,
         replies: replies,
         tweet: tweet,
         origin_id: origin_id,
@@ -123,7 +123,7 @@ router.get("/:id", async (request, response) => {
     })
 })
 
-router.get("/:id/delete", async (request, response) => {
+router.get(`/:id/delete`, async (request, response) => {
     const id = request.params.id
 
     await pool.promise().query(`
@@ -131,55 +131,105 @@ router.get("/:id/delete", async (request, response) => {
         WHERE id = ?
         `, [id])
 
-        response.redirect("/shitter")
+    response.redirect(`/shitter`)
 })
 
-router.get("/login", async (request, response) => {
-    response.render("login.njk", {
-        title: "login page",
+router.get(`/login`, async (request, response) => {
+    response.render(`login.njk`, {
+        title: `login page`,
 
     })
 })
 
-router.post("/login", async (request, response) => {
+router.post(`/login`, async (request, response) => {
     const password = request.params.password
     const username = request.params.username
 
-    const user = await pool.promise().query(`
-        SELECT * FROM users
+    const [user] = await pool.promise().query(`
+        SELECT users.* FROM users
         WHERE users.name = ?
         `, [username])
 
-    bcrypt.compare(password, user.password, function(err, result){
-        console.log(result)
+    bcrypt.compare(password, user[0].password, function(err, result){
+        if (err) {
+            console.log("oopsie daisy bcrypt brokus")
+            response.render("login.njk", {
+                title: "Login: Internal Server Error",
+                error: {
+                    message: "Internal Server Error",
+                    state: true
+                }
+            })
+        }
+        else {
+            if (result) {
+                response.redirect("/user/" + user.id)
+            }
+            else {
+                response.render("login.njk", {
+                    title: "Login: Credential Error",
+                    error: {
+                        message: "Credential Error",
+                        state: true
+                    }
+                })
+            }
+        }
     })
 })
 
-router.get("/user/new", async (request, response) => {
-    response.render("createuser.njk", {
-        title: "create new user",
+router.get(`/user/new`, async (request, response) => {
+    response.render(`createuser.njk`, {
+        title: `create new user`,
     })
 })
 
 router.post("/user/new", async (request, response) => {
-    password = request.params.password
     username = request.params.username
+    result = await bcrypt.hash(request.params.password, 10, (err, hash) => {
 
-    console.log(password, username)
-
-    const result = await pool.promise().query(`
-        INSERT INTO users (name, password)
-        VALUES (?, ?)
-        `, {
-            username,
-            password
-        })
-
-    response.redirect("/user/" + result[0].insertId)
+        if (err) {
+            response.render(`/login/new`, {
+                title: "Login: Internal Server Error",
+                error: {
+                    message: "Internal Server Error",
+                    state: true
+                }
+            })
+        }
+        else {
+            const [result] = pool.promise().query(`
+                INSERT INTO users (name, password)
+                VALUES (?, ?)
+                `, {
+                    username,
+                    hash
+                })
+            response.redirect(`/user/` + result[0].insertId)
+        }
+    })
 })
 
-router.get("/user/:id", async (request, response) => {
+router.get(`/user/:id`, async (request, response) => {
+    const userID = request.params.id
+
+    const [user] = await pool.promise().query(`
+        SELECT users.* FROM users
+        WHERE id = ?
+        `, userID)
     
+    const [tweets] = await pool.promise().query(`
+        SELECT tweets.* FROM tweets
+        WHERE author_id = ?
+        `, userID)
+
+    console.log(tweets, user)
+
+    response.render(`userpage.njk`, {
+        username: user[0].name,
+        tweets: tweets,
+        title: user[0].name + `'s profile`
+    })
 })
 
 export default router
