@@ -1,8 +1,17 @@
-import express, { request } from "express"
+import express, { application, request } from "express"
 import pool from "../db.js"
 import bcrypt from "bcrypt"
+import session from "express-session"
 
+const app = express()
 const router = express.Router()
+
+app.use(session({
+    secret: "keyboard cat",
+    resave: false,
+    saveUninitialized: true,
+    cookie: { sameSite: true }
+}))
 
 router.get(`/`, async (request, response) => {
 
@@ -96,32 +105,40 @@ router.get(`/:id`, async (request, response) => {
     
     const origin_id = request.params.id
 
-    const [tweet] = await pool.promise().query(`
-        SELECT tweets.*, users.name, DATE_FORMAT(tweets.updated_at, "%Y-%m-%d %H:%i") AS date
-        FROM tweets 
-        JOIN users ON users.id = tweets.author_id 
-        WHERE tweets.id = ?;
-        `, [origin_id])
+    try {
+        const [tweet] = await pool.promise().query(`
+            SELECT tweets.*, users.name, DATE_FORMAT(tweets.updated_at, "%Y-%m-%d %H:%i") AS date
+            FROM tweets 
+            JOIN users ON users.id = tweets.author_id 
+            WHERE tweets.id = ?;
+            `, [origin_id])
+    
+        const [replies] = await pool.promise().query(`
+            SELECT threads.reply_id, users.name, tweets.*, DATE_FORMAT(tweets.updated_at, "%Y-%m-%d %H:%i") AS date
+            FROM threads
+            JOIN tweets ON tweets.id = threads.reply_id
+            JOIN users ON tweets.author_id = users.id
+            WHERE threads.origin_id = ?
+            ORDER BY updated_at DESC;
+            `, [origin_id])
+    
+        const [authors] = await pool.promise().query(`
+            SELECT * FROM users`)
+    
+        response.render(`thread.njk`, {
+            title: tweet[0].name + `'s tweet`,
+            replies: replies,
+            tweet: tweet,
+            origin_id: origin_id,
+            authors: authors
+        })
+    }
 
-    const [replies] = await pool.promise().query(`
-        SELECT threads.reply_id, users.name, tweets.*, DATE_FORMAT(tweets.updated_at, "%Y-%m-%d %H:%i") AS date
-        FROM threads
-        JOIN tweets ON tweets.id = threads.reply_id
-        JOIN users ON tweets.author_id = users.id
-        WHERE threads.origin_id = ?
-        ORDER BY updated_at DESC;
-        `, [origin_id])
-
-    const [authors] = await pool.promise().query(`
-        SELECT * FROM users`)
-
-    response.render(`thread.njk`, {
-        title: tweet[0].name + `'s tweet`,
-        replies: replies,
-        tweet: tweet,
-        origin_id: origin_id,
-        authors: authors
-    })
+    catch(err) {
+        response.render("error.njk", {
+            message: "Internal server error: Tweet does not exist"
+        })
+    }
 })
 
 router.get(`/:id/delete`, async (request, response) => {
@@ -153,13 +170,8 @@ router.post(`/login`, async (request, response) => {
 
     bcrypt.compare(password, user[0].password, function(err, result){
         if (err) {
-            console.log("oopsie daisy bcrypt brokus")
-            response.render("login.njk", {
-                title: "Login: Internal Server Error",
-                error: {
-                    message: "Internal Server Error",
-                    state: true
-                }
+            response.render("error.njk", {
+                message: "Internal server error: hashing error"
             })
         }
         else {
@@ -167,12 +179,8 @@ router.post(`/login`, async (request, response) => {
                 response.redirect("/shitter/user/" + user.id)
             }
             else {
-                response.render("login.njk", {
-                    title: "Login: Credential Error",
-                    error: {
-                        message: "Credential Error",
-                        state: true
-                    }
+                response.render("error.njk", {
+                    message: "Credential error: Incorrect credentials"
                 })
             }
         }
@@ -193,12 +201,8 @@ router.post("/user/new", async (request, response) => {
         if (err) {
             console.log("Server Error")
             console.log(err)
-            response.render(`createuser.njk`, {
-                title: "Login: Internal Server Error",
-                error: {
-                    message: "Internal Server Error",
-                    state: true
-                }
+            response.render("error.njk", {
+                message: "Internal error: Server error"
             })
         }
         else {
@@ -220,21 +224,29 @@ router.post("/user/new", async (request, response) => {
 router.get("/user/:id", async (request, response) => {
     const userID = request.params.id
 
-    const [user] = await pool.promise().query(`
-        SELECT users.* FROM users
-        WHERE id = ?
-        `, userID)
+    try {
+        const [user] = await pool.promise().query(`
+            SELECT users.* FROM users
+            WHERE id = ?
+            `, userID)
+        
+        const [tweets] = await pool.promise().query(`
+            SELECT tweets.* FROM tweets
+            WHERE author_id = ?
+            `, userID)
     
-    const [tweets] = await pool.promise().query(`
-        SELECT tweets.* FROM tweets
-        WHERE author_id = ?
-        `, userID)
-
-    response.render(`userpage.njk`, {
-        username: user[0].name,
-        tweets: tweets,
-        title: user[0].name + `'s profile`
-    })
+        response.render(`userpage.njk`, {
+            username: user[0].name,
+            tweets: tweets,
+            title: user[0].name + `'s profile`
+        })
+    }
+    catch(err) {
+        response.render("error.njk", {
+            message: "Internal error: User does not exist"
+        })
+    }
+    
 })
 
 export default router
