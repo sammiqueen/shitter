@@ -1,5 +1,6 @@
 import express, { request } from "express"
 import pool from "../db.js"
+import bcrypt from "bcrypt"
 
 const router = express.Router()
 
@@ -163,7 +164,7 @@ router.post(`/login`, async (request, response) => {
         }
         else {
             if (result) {
-                response.redirect("/user/" + user.id)
+                response.redirect("/shitter/user/" + user.id)
             }
             else {
                 response.render("login.njk", {
@@ -185,11 +186,14 @@ router.get(`/user/new`, async (request, response) => {
 })
 
 router.post("/user/new", async (request, response) => {
-    username = request.params.username
-    result = await bcrypt.hash(request.params.password, 10, (err, hash) => {
+    const username = request.body.username
+    const password = request.body.password
 
+    bcrypt.hash(password, 10, async (err, hash) => {
         if (err) {
-            response.render(`/login/new`, {
+            console.log("Server Error")
+            console.log(err)
+            response.render(`createuser.njk`, {
                 title: "Login: Internal Server Error",
                 error: {
                     message: "Internal Server Error",
@@ -198,19 +202,22 @@ router.post("/user/new", async (request, response) => {
             })
         }
         else {
-            const [result] = pool.promise().query(`
+            console.log(hash)
+            const result = await pool.promise().query(`
                 INSERT INTO users (name, password)
                 VALUES (?, ?)
-                `, {
+                `, [
                     username,
                     hash
-                })
-            response.redirect(`/user/` + result[0].insertId)
+                ]
+                )
+            console.log("Redirecting to /user/" + result[0])
+            response.redirect(`shitter/user/` + result[0].insertId)
         }
     })
 })
 
-router.get(`/user/:id`, async (request, response) => {
+router.get("/user/:id", async (request, response) => {
     const userID = request.params.id
 
     const [user] = await pool.promise().query(`
@@ -222,8 +229,6 @@ router.get(`/user/:id`, async (request, response) => {
         SELECT tweets.* FROM tweets
         WHERE author_id = ?
         `, userID)
-
-    console.log(tweets, user)
 
     response.render(`userpage.njk`, {
         username: user[0].name,
