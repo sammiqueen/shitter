@@ -1,19 +1,10 @@
-import express, { application, request } from "express"
+import express from "express"
 import pool from "../db.js"
 import bcrypt from "bcrypt"
-import session from "express-session"
 
-const app = express()
 const router = express.Router()
 
-app.use(session({
-    secret: "keyboard cat",
-    resave: false,
-    saveUninitialized: true,
-    cookie: { sameSite: true }
-}))
-
-router.get(`/`, async (request, response) => {
+router.get("/", async (request, response) => {
 
     const [tweets] = await pool.promise().query(`
         SELECT tweets.*, users.name, DATE_FORMAT(tweets.updated_at, "%Y-%m-%d %H:%i") AS date
@@ -22,25 +13,25 @@ router.get(`/`, async (request, response) => {
         ORDER BY updated_at DESC;
         `)
 
-    response.render(`index.njk`, {
-        title: `Shitter`,
+    response.render("index.njk", {
+        title: "Shitter",
         tweets: tweets
         }
     )
 })
 
-router.get(`/post`, async (request, response) => {
+router.get("/post", async (request, response) => {
 
     const [authors] = await pool.promise().query(`
         SELECT * FROM users`)
 
-    response.render(`creationform.njk`, {
-        title: `Create new tweet`,
+    response.render("creationform.njk", {
+        title: "Create new tweet",
         authors: authors
     })
 })
 
-router.post(`/`, async (request, response) => {
+router.post("/", async (request, response) => {
 
     const author_id = request.body.author
     const message = request.body.content
@@ -64,41 +55,74 @@ router.post(`/`, async (request, response) => {
         var redirect_id = result[0].insertId
     }
     
-    response.redirect(`/shitter/` + redirect_id)
+    response.redirect("/shitter/" + redirect_id)
 })
 
-router.get(`/:id/edit`, async (request, response) => {
+router.get("/:id/edit", async (request, response) => {
     const id = request.params.id
 
     const [old_content] = await pool.promise().query(`
-        SELECT tweets.message
-        FROM tweets
+        SELECT tweets.* FROM tweets
         WHERE tweets.id = ?
         `, [id])
 
     console.log(old_content)
 
-    response.render(`editform.njk`, {
-        title: `Edit tweet`,
-        old_content: old_content[0].message,
-        tweet_id: [id]
-    })
+    //if user is logged in and their ID is the same as that of the author of the tweet: 
+    //render the page 
+    //otherwise redirect back
+    try {
+        if (request.session.loggedin == true & request.session.userid == old_content.author_id) {
+            response.render("editform.njk", {
+                title: "Edit tweet",
+                old_content: old_content[0].message,
+                tweet_id: [id]
+            })
+        }
+        else {
+            request.session.errormessage = "Not logged in as user, authenticate?"
+            response.redirect("back")
+        }
+    }
+    catch (err) {
+        request.session.errormessage = "Internal Server Error: hashing error"
+        response.redirect("back")
+    }
 })
 
 router.post(`/:id/edit`, async (request, response) => {
-    const new_content = request.body.new_content
     const id = request.params.id
-    const timestamp = new Date().toISOString().slice(0, 19).replace(`T`, ` `)
+    const [old_tweet] = await pool.promise().query(`
+            SELECT tweets.* FROM tweets
+            WHERE tweets.id = ?
+        `, [id])
 
-    await pool.promise().query(`
-        UPDATE tweets
-        SET tweets.message = ?, updated_at = ?
-        WHERE tweets.id = ?;
-        `, [new_content, timestamp, id])
+    try {
+        if (request.session.loggedin == true & request.session.userid == old_tweet.author_id) {
+            const new_content = request.body.new_content
+            const timestamp = new Date().toISOString().slice(0, 19).replace(`T`, ` `)
+        
+            await pool.promise().query(`
+                UPDATE tweets
+                SET tweets.message = ?, updated_at = ?
+                WHERE tweets.id = ?;
+                `, [new_content, timestamp, id])
+        
+            console.log(id, new_content)
+        
+            response.redirect(`/shitter/${id}`)
+        }
 
-    console.log(id, new_content)
+        else {
+            request.session.errormessage = "Not logged in as user, authenticate?"
+            response.redirect("back")
+        }
+    }
 
-    response.redirect(`/shitter/${id}`)
+    catch (err) {
+        request.session.errormessage = "Internal Server Error: hashing error"
+        response.redirect("back")
+    }
 })
 
 router.get(`/:id`, async (request, response) => {
@@ -125,7 +149,7 @@ router.get(`/:id`, async (request, response) => {
         const [authors] = await pool.promise().query(`
             SELECT * FROM users`)
     
-        response.render(`thread.njk`, {
+        response.render("thread.njk", {
             title: tweet[0].name + `'s tweet`,
             replies: replies,
             tweet: tweet,
@@ -135,59 +159,78 @@ router.get(`/:id`, async (request, response) => {
     }
 
     catch(err) {
-        response.render("error.njk", {
-            message: "Internal server error: Tweet does not exist"
-        })
+        request.session.errormessage = "Internal Server Error: tweet does not exist"
+        response.redirect("back")
     }
 })
 
-router.get(`/:id/delete`, async (request, response) => {
-    const id = request.params.id
+router.get("/:id/delete", async (request, response) => {
+    const [tweet] = await pool.promise().query(`
+            SELECT tweets.* FROM tweets
+            WHERE id = ?
+        `, [request.params.id])
 
-    await pool.promise().query(`
-        DELETE FROM tweets
-        WHERE id = ?
-        `, [id])
+    try {
+        if (request.session.loggedin & request.session.userid == tweet[0].author_id) {
+            await pool.promise().query(`
+                DELETE FROM tweets
+                WHERE id = ?
+                `, [id])
+        
+            response.redirect("/shitter")
+        }
+        else {
+            request.session.errormessage = "Not logged in as user, authenticate?"
+            response.redirect("back")
+        }
+    }
 
-    response.redirect(`/shitter`)
+    catch (err) {
+        request.session.errormessage = "Internal server error: Session Error"
+        response.redirect("back")
+    }
 })
 
-router.get(`/login`, async (request, response) => {
+router.get("/user/login", async (request, response) => {
     response.render(`login.njk`, {
-        title: `login page`,
+        title: "login page",
 
     })
 })
 
-router.post(`/login`, async (request, response) => {
-    const password = request.params.password
-    const username = request.params.username
+router.post("/user/login", async (request, response) => {
+    const password = request.body.password
+    const username = request.body.username
 
     const [user] = await pool.promise().query(`
         SELECT users.* FROM users
         WHERE users.name = ?
         `, [username])
 
+    console.log(password, username, user[0].password)
+
     bcrypt.compare(password, user[0].password, function(err, result){
         if (err) {
-            response.render("error.njk", {
-                message: "Internal server error: hashing error"
-            })
+            console.log(err)
+            request.session.errormessage = "Internal Server Error: hashing error"
+            response.redirect("back")
         }
         else {
             if (result) {
-                response.redirect("/shitter/user/" + user.id)
+                request.session.loggedin = true
+                request.session.userid = user[0].id
+                
+                response.redirect("/shitter/user/" + user[0].id)
             }
             else {
-                response.render("error.njk", {
-                    message: "Credential error: Incorrect credentials"
-                })
+                response.session.errormessage = "Credential Error: incorrect credentials"
+                response.redirect("back")
             }
         }
     })
 })
 
-router.get(`/user/new`, async (request, response) => {
+router.get("/user/new", async (request, response) => {
     response.render(`createuser.njk`, {
         title: `create new user`,
     })
@@ -199,24 +242,26 @@ router.post("/user/new", async (request, response) => {
 
     bcrypt.hash(password, 10, async (err, hash) => {
         if (err) {
-            console.log("Server Error")
             console.log(err)
-            response.render("error.njk", {
-                message: "Internal error: Server error"
-            })
+            response.session.errormessage = "Internal Server Error: hashing error"
+            response.redirect("back")
         }
         else {
             console.log(hash)
             const result = await pool.promise().query(`
                 INSERT INTO users (name, password)
-                VALUES (?, ?)
+                VALUES (?, ?);
                 `, [
                     username,
                     hash
                 ]
-                )
+            )
+
+            request.session.loggedin = true
+            request.session.userid = result[0]
+
             console.log("Redirecting to /user/" + result[0])
-            response.redirect(`shitter/user/` + result[0].insertId)
+            response.redirect("shitter/user/" + result[0].insertId)
         }
     })
 })
@@ -242,9 +287,8 @@ router.get("/user/:id", async (request, response) => {
         })
     }
     catch(err) {
-        response.render("error.njk", {
-            message: "Internal error: User does not exist"
-        })
+        response.session.errormessage = "Internal Server Error: user does not exist"
+        response.redirect("back")
     }
     
 })

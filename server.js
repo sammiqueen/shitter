@@ -3,6 +3,7 @@ import nunjucks from "nunjucks"
 import bodyparser from "body-parser"
 import "dotenv/config"
 import logger from "morgan"
+import session from "express-session"
 
 import shitRouter from "./routes/shitter.js"
 
@@ -12,7 +13,12 @@ const port = 3000
 const bcrypt = import("bcrypt");
 const saltRounds = 10
 
-var session = import("express-session")
+app.use(session({
+    secret: "keyboard cat",
+    resave: false,
+    saveUninitialized: true,
+    cookie: { sameSite: true }
+}))
 
 nunjucks.configure("views", {
     autoescape: true,
