@@ -1,5 +1,5 @@
 import express from "express"
-import pool from "../db.js"
+import db from "../db-sqlite.js"
 import bcrypt from "bcrypt" 
 import session from "express-session"
 
@@ -7,7 +7,7 @@ const router = express.Router()
 
 router.get("/", async (request, response) => {
 
-    const [tweets] = await pool.promise().query(`
+    const [tweets] = await db.all(`
         SELECT tweets.*, users.name, DATE_FORMAT(tweets.updated_at, "%Y-%m-%d %H:%i") AS date
         FROM tweets
         JOIN users ON tweets.author_id = users.id
@@ -34,17 +34,17 @@ router.post("/", async (request, response) => {
     const message = request.body.content
 
     try {
-        let result = await pool.promise().query(`
+        let result = await db.run(`
             INSERT INTO tweets (author_id, message)
             VALUES (?, ?)`,
-            [request.session.userid, message]
+            request.session.userid, message
         )
         console.log(result)
 
         const inThread = request.body.origin_id
 
         if (inThread) {
-            let something = await pool.promise().query(`
+            await db.run(`
                 INSERT INTO threads (origin_id, reply_id)
                 VALUES (?, ?)
                 `, [inThread, result[0].insertId])
@@ -64,10 +64,10 @@ router.post("/", async (request, response) => {
 
 router.get("/:id/edit", async (request, response) => {
     const id = request.params.id
-    const [old_content] = await pool.promise().query(`
+    const [old_content] = await db.get(`
         SELECT tweets.* FROM tweets
-        WHERE tweets.id = ?
-        `, [id])
+        WHERE tweets.id = ? LIMIT 1
+        `, id)
 
     //if user is logged in and their ID is the same as that of the author of the tweet: 
     //render the page 
@@ -86,10 +86,10 @@ router.get("/:id/edit", async (request, response) => {
 
 router.post("/:id/edit", async (request, response) => {
     const id = request.params.id
-    const [old_content] = await pool.promise().query(`
+    const [old_content] = await db.get(`
         SELECT tweets.* FROM tweets
-        WHERE tweets.id = ?
-        `, [id])
+        WHERE tweets.id = ? LIMIT 1
+        `, id)
     const new_content = request.body.new_content
 
     
