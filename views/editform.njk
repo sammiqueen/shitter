@@ -6,7 +6,8 @@
         <div class="textblock">
             <h2>Edit tweet</h2>
                 <label for="new_content">Content</label>
-                <input type="text", name="new_content" required value = "{{old_content}}"><br>
+                <input type="text", name="new_content" required value = "{{old_content[0].message}}"><br>
+                <input type="hidden", name ="old_content" required value = {{old_content}}>
             <button type="submit">Update</button>
         </div>
     </form>
