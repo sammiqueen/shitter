@@ -1,5 +1,6 @@
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
+import bcrypt from "bcrypt";
 
 // Open a database connection
 const db = await open({
@@ -12,7 +13,7 @@ await db.exec(`
   CREATE TABLE IF NOT EXISTS tweets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     author_id INTEGER,
-    message VARCHAR(255s),
+    message VARCHAR(255),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
@@ -37,9 +38,12 @@ await db.exec(`
 `);
 
 // Insert a default user if the table is empty
-const userCount = await db.get('SELECT COUNT(*) AS count FROM user');
+const userCount = await db.get('SELECT COUNT(*) AS count FROM users');
 if (userCount.count === 0) {
-  await db.run('INSERT INTO user (name) VALUES (?)', 'Anonymous');
+  await db.run(`
+    INSERT INTO users (name, password)
+    VALUES (?, ?)`
+    , 'Anonymous', `$2b$10$6VuuksTM45Q03pt09CFYaOknBYKavE9fsVmRB9OtYRkdpfR5818oe`);
 }
 
 // Export the database connection

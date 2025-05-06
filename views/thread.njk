@@ -18,13 +18,6 @@
                 <h2>Create new reply</h2>
                     <label for="content">Content</label>
                     <input type="text", name="content" required><br>
-        
-                    <label for="author">Author</label>
-                    <select name="author" required>
-                        {% for author in authors %}
-                            <option value={{author.id}}>{{author.name}}</option>
-                        {% endfor %}
-                    </select> <br>
 
                     <input type ="hidden" name="origin_id" value={{origin_id}}>
         

@@ -1,7 +1,7 @@
 import express from "express"
 import nunjucks from "nunjucks"
 import bodyparser from "body-parser"
-import "dotenv/config"
+//import "dotenv/config"
 import logger from "morgan"
 import session from "express-session"
 
