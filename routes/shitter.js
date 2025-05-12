@@ -3,6 +3,7 @@ import db from "../db-sqlite.js"
 import bcrypt from "bcrypt"
 import session from "express-session"
 import { format } from "morgan"
+import { formatDistanceToNow } from "date-fns"
 
 const router = express.Router()
 
@@ -11,11 +12,6 @@ router.get("/", async (request, response) => {
     /*await db.run(`
         DELETE FROM users WHERE users.id LIKE ?;
         `, "_")*/
-
-    const users = await db.all(`
-        SELECT users.* FROM users;
-        `)
-    console.log(users)
 
     const tweets = await db.all(`
         SELECT tweets.*, users.name, DATE(tweets.updated_at) AS date
@@ -39,7 +35,9 @@ router.get("/post", (request, response) => {
 
 router.post("/", async (request, response) => {
 
-    if (!request.session.userid) redirect(req.get("Referrer") || "/")
+    if (!request.session.userid) {
+        return response.redirect(request.get("Referrer") || "/")
+    }
     const author_id = request.body.author
     const message = request.body.content
 
@@ -57,16 +55,16 @@ router.post("/", async (request, response) => {
             await db.run(`
                 INSERT INTO threads (origin_id, reply_id)
                 VALUES (?, ?)
-                `, [inThread, result[0].insertId])
-            return redirect("/shitter/" + inThread)
+                `, [inThread, result.insertId])
+            return response.redirect("/shitter/" + inThread)
         }
 
-        response.redirect(`/shitter/` + result[0].insertId)
+        response.redirect(`/shitter/` + result.insertId)
     }
     catch (err) {
         console.log("failed result check thing")
 
-        request.status(400).send("err")
+        console.log(err)
     }
 
 
@@ -82,7 +80,7 @@ router.get("/:id/edit", async (request, response) => {
     //if user is logged in and their ID is the same as that of the author of the tweet: 
     //render the page 
     //otherwise redirect back
-    if (!request.session.loggedin || !(request.session.userid == old_content[0].author_id)) {
+    if (!request.session.loggedin || !(request.session.userid == old_content.author_id)) {
         request.session.errormessage = "Not logged in as user, authenticate?"
         return response.redirect(request.get("Referrer") || "/")
     }
@@ -103,7 +101,7 @@ router.post("/:id/edit", async (request, response) => {
     const new_content = request.body.new_content
 
 
-    if (!request.session.loggedin || !(request.session.userid == old_content[0].author_id)) {
+    if (!request.session.loggedin || !(request.session.userid == old_content.author_id)) {
         console.log(old_content, request.session.loggedin, request.session.userid)
         request.session.errormessage = "Not logged in as user, authenticate?"
         console.log("error at post(/id/edit)")
@@ -130,14 +128,14 @@ router.get(`/:id`, async (request, response) => {
 
     try {
         const tweet = await db.get(`
-            SELECT tweets.*, users.name, DATE_FORMAT(tweets.updated_at, "%Y-%m-%d %H:%i") AS date
+            SELECT tweets.*, users.name, updated_at AS date
             FROM tweets 
             JOIN users ON users.id = tweets.author_id 
             WHERE tweets.id = ? LIMIT 1;
             `, origin_id)
 
         const replies = await db.all(`
-            SELECT threads.reply_id, users.name, tweets.*, DATE_FORMAT(tweets.updated_at, "%Y-%m-%d %H:%i") AS date
+            SELECT threads.reply_id, users.name, tweets.*, updated_at AS date
             FROM threads
             JOIN tweets ON tweets.id = threads.reply_id
             JOIN users ON tweets.author_id = users.id
@@ -145,8 +143,18 @@ router.get(`/:id`, async (request, response) => {
             ORDER BY updated_at DESC;
             `, origin_id)
 
+        const formattedTweet = tweet.map(tweet => ({
+            ...tweet,
+            date: formatDistanceToNow(new Date(tweet.updated_at), { addSuffix: true})
+        }))
+
+        const formattedReplies = replies.map(reply => ({
+            ...reply,
+            date: formatDistanceToNow(new Date(reply.update_at), { addSuffix: true })
+        }))
+
         response.render("thread.njk", {
-            title: tweet[0].name + `'s tweet`,
+            title: tweet.name + `'s tweet`,
             replies: replies,
             tweet: tweet,
             origin_id: origin_id,
@@ -155,7 +163,8 @@ router.get(`/:id`, async (request, response) => {
 
     catch (err) {
         request.session.errormessage = "Internal Server Error: tweet does not exist"
-        response.redirect(req.get("Referrer") || "/")
+        console.log(err)
+        //response.redirect(request.get("Referrer") || "/")
     }
 })
 
@@ -165,7 +174,7 @@ router.get("/:id/delete", async (request, response) => {
             WHERE id = ? LIMIT 1;
         `, request.params.id)
 
-    if (!request.session.loggedin || !(request.session.userid == tweet[0].author_id)) {
+    if (!request.session.loggedin || !(request.session.userid == tweet.author_id)) {
         request.session.errormessage = "Not logged in as user, authenticate?"
         return response.redirect(req.get("Referrer") || "/")
     }
@@ -204,7 +213,7 @@ router.post("/user/login", async (request, response) => {
         else {
             if (result) {
                 request.session.loggedin = true
-                request.session.userid = user[0].id
+                request.session.userid = user.id
                 console.log(request.session.userid)
 
                 response.redirect("/shitter/user/" + user.id)
@@ -245,10 +254,10 @@ router.post("/user/new", async (request, response) => {
             )
 
             request.session.loggedin = true
-            request.session.userid = result[0]
+            request.session.userid = result
 
-            console.log("Redirecting to /user/" + result[0])
-            response.redirect("shitter/user/" + result[0].insertId)
+            console.log("Redirecting to /user/" + result)
+            response.redirect("shitter/user/" + result.insertId)
         }
     })
 })
@@ -257,25 +266,25 @@ router.get("/user/:id", async (request, response) => {
     const userID = request.params.id
 
     try {
-        const [user] = await db.get(`
+        const user = await db.get(`
             SELECT users.* FROM users
             WHERE id = ? LIMIT 1;
             `, userID)
 
-        const [tweets] = await db.all(`
+        const tweets = await db.all(`
             SELECT tweets.* FROM tweets
             WHERE author_id = ?;
             `, userID)
 
         response.render(`userpage.njk`, {
-            username: user[0].name,
+            username: user.name,
             tweets: tweets,
-            title: user[0].name + `'s profile`
+            title: user.name + `'s profile`
         })
     }
     catch (err) {
         request.session.errormessage = "Internal Server Error: user does not exist"
-        response.redirect(req.get("Referrer") || "/")
+        response.redirect(request.get("Referrer") || "/")
     }
 
 })
