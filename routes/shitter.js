@@ -9,10 +9,6 @@ const router = express.Router()
 
 router.get("/", async (request, response) => {
 
-    /*await db.run(`
-        DELETE FROM users WHERE users.id LIKE ?;
-        `, "_")*/
-
     const tweets = await db.all(`
         SELECT tweets.*, users.name, DATE(tweets.updated_at) AS date
         FROM tweets
