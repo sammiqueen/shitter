@@ -38,7 +38,6 @@ router.post("/", async (request, response) => {
     if (!request.session.userid) {
         return response.redirect(request.get("Referrer") || "/")
     }
-    const author_id = request.body.author
     const message = request.body.content
 
     try {
@@ -47,7 +46,6 @@ router.post("/", async (request, response) => {
             VALUES (?, ?)`,
             request.session.userid, message
         )
-        console.log(result)
 
         const inThread = request.body.origin_id
 
@@ -55,11 +53,13 @@ router.post("/", async (request, response) => {
             await db.run(`
                 INSERT INTO threads (origin_id, reply_id)
                 VALUES (?, ?)
-                `, [inThread, result.insertId])
+                `, inThread, result.lastID)
             return response.redirect("/shitter/" + inThread)
         }
 
-        response.redirect(`/shitter/` + result.insertId)
+        console.log("redirecting to ", result.lastID)
+
+        response.redirect(`/shitter/` + result.lastID)
     }
     catch (err) {
         console.log("failed result check thing")
@@ -102,7 +102,6 @@ router.post("/:id/edit", async (request, response) => {
 
 
     if (!request.session.loggedin || !(request.session.userid == old_content.author_id)) {
-        console.log(old_content, request.session.loggedin, request.session.userid)
         request.session.errormessage = "Not logged in as user, authenticate?"
         console.log("error at post(/id/edit)")
         return response.redirect(request.get("Referrer") || "/")
@@ -112,11 +111,11 @@ router.post("/:id/edit", async (request, response) => {
 
     const result = await db.run(`
             UPDATE tweets
-            SET tweets.message = ?, updated_at = ?
-            WHERE tweets.id = ?;
+            SET message = ?, updated_at = ?
+            WHERE id = ?
             `, new_content, timestamp, id)
 
-    console.log(id, new_content)
+    console.log(id, new_content, result)
 
     response.redirect("/shitter/" + id)
 
@@ -128,40 +127,41 @@ router.get(`/:id`, async (request, response) => {
 
     try {
         const tweet = await db.get(`
-            SELECT tweets.*, users.name, updated_at AS date
+            SELECT tweets.*, users.name, tweets.updated_at AS date
             FROM tweets 
             JOIN users ON users.id = tweets.author_id 
             WHERE tweets.id = ? LIMIT 1;
             `, origin_id)
 
         const replies = await db.all(`
-            SELECT threads.reply_id, users.name, tweets.*, updated_at AS date
+            SELECT threads.reply_id, users.name, tweets.*, tweets.updated_at AS date
             FROM threads
             JOIN tweets ON tweets.id = threads.reply_id
             JOIN users ON tweets.author_id = users.id
             WHERE threads.origin_id = ?
-            ORDER BY updated_at DESC;
+            ORDER BY tweets.updated_at DESC;
             `, origin_id)
 
-        const formattedTweet = tweet.map(tweet => ({
-            ...tweet,
-            date: formatDistanceToNow(new Date(tweet.updated_at), { addSuffix: true})
-        }))
+        const formattedTweet = tweet
+        formattedTweet.date = formatDistanceToNow(new Date(tweet.updated_at), { addSuffix: true })
 
         const formattedReplies = replies.map(reply => ({
             ...reply,
-            date: formatDistanceToNow(new Date(reply.update_at), { addSuffix: true })
+            date: formatDistanceToNow(new Date(reply.updated_at), { addSuffix: true })
         }))
 
+        console.log(formattedTweet.name)
+
         response.render("thread.njk", {
-            title: tweet.name + `'s tweet`,
-            replies: replies,
-            tweet: tweet,
+            title: formattedTweet.name + `'s tweet`,
+            replies: formattedReplies,
+            tweet: formattedTweet,
             origin_id: origin_id,
         })
     }
 
     catch (err) {
+        console.log("Tweet does not exist")
         request.session.errormessage = "Internal Server Error: tweet does not exist"
         console.log(err)
         //response.redirect(request.get("Referrer") || "/")
@@ -246,18 +246,16 @@ router.post("/user/new", async (request, response) => {
             console.log(hash)
             const result = await db.run(`
                 INSERT INTO users (name, password)
-                VALUES (?, ?);
-                `, [
+                VALUES (?, ?)`,
                 username,
                 hash
-            ]
             )
 
             request.session.loggedin = true
-            request.session.userid = result
+            request.session.userid = result.lastID
 
-            console.log("Redirecting to /user/" + result)
-            response.redirect("shitter/user/" + result.insertId)
+            console.log(result)
+            response.redirect("/shitter/user/" + result.lastID)
         }
     })
 })
