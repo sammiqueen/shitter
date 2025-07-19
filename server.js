@@ -31,7 +31,7 @@ app.use(bodyparser.json());
 
 app.use(logger("dev"))
 
-app.use("/shitter", shitRouter)
+app.use("/", shitRouter)
 
 app.listen(3000, () => {
     console.log("Server is running on http://localhost:3000")

@@ -50,12 +50,12 @@ router.post("/", async (request, response) => {
                 INSERT INTO threads (origin_id, reply_id)
                 VALUES (?, ?)
                 `, inThread, result.lastID)
-            return response.redirect("/shitter/" + inThread)
+            return response.redirect("/" + inThread)
         }
 
-        console.log("redirecting to ", result.lastID)
+        //console.log("redirecting to ", result.lastID)
 
-        response.redirect(`/shitter/` + result.lastID)
+        response.redirect("/" + result.lastID)
     }
     catch (err) {
         console.log("failed result check thing")
@@ -113,7 +113,7 @@ router.post("/:id/edit", async (request, response) => {
 
     console.log(id, new_content, result)
 
-    response.redirect("/shitter/" + id)
+    response.redirect("/" + id)
 
 })
 
@@ -160,7 +160,7 @@ router.get(`/:id`, async (request, response) => {
         console.log("Tweet does not exist")
         request.session.errormessage = "Internal Server Error: tweet does not exist"
         console.log(err)
-        //response.redirect(request.get("Referrer") || "/")
+        response.redirect(request.get("Referrer") || "/")
     }
 })
 
@@ -180,7 +180,7 @@ router.get("/:id/delete", async (request, response) => {
         WHERE id = ?
         `, id)
 
-    response.redirect("/shitter")
+    return response.redirect(req.get("Referrer") || "/")
 })
 
 router.get("/user/login", async (request, response) => {
@@ -212,7 +212,7 @@ router.post("/user/login", async (request, response) => {
                 request.session.userid = user.id
                 console.log(request.session.userid)
 
-                response.redirect("/shitter/user/" + user.id)
+                response.redirect("/user/" + user.id)
             }
             else {
                 request.session.errormessage = "Credential Error: incorrect credentials"
@@ -251,7 +251,7 @@ router.post("/user/new", async (request, response) => {
             request.session.userid = result.lastID
 
             console.log(result)
-            response.redirect("/shitter/user/" + result.lastID)
+            response.redirect("/user/" + result.lastID)
         }
     })
 })
